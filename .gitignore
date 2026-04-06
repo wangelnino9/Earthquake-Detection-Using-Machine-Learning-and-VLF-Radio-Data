@@ -1,0 +1,19 @@
+# Virtual environment
+venv/
+
+# Data folder - too large for git
+data/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# VS Code settings
+.vscode/
+
+# macOS
+.DS_Store
+
+# Outputs (optional - you may want to keep these)
+outputs/
