@@ -1,16 +1,14 @@
-# ============================================================
-# Step 1 — Load and Explore Raw VLF Data
-# ============================================================
+#Stage 1 — Load and Explore Raw VLF Data
 
 import os
 import pandas as pd
 import matplotlib.pyplot as plt
 
-# ── Configuration ────────────────────────────────────────────
-DATA_DIR = "/Users/tsheringsherpa/Downloads/Masters Thesis/Project/Data"  # path to your data folder
+# Configuration 
+DATA_DIR = "/Users/tsheringsherpa/Downloads/Masters Thesis/Project/Data"  # path
 STATIONS = ["AKT", "ANA", "IMZ", "KMK", "KTU", "NSB", "STU", "TYH"]
 
-# ── Function: Read a single VLF .txt file ────────────────────
+#Function: Read a single VLF .txt file 
 def read_vlf_file(filepath):
     """
     Reads a single VLF .txt file.
@@ -31,7 +29,7 @@ def read_vlf_file(filepath):
         return None
 
 
-# ── Function: Explore a single file ─────────────────────────
+#Function: Explore a single file
 def explore_single_file(station="IMZ"):
     """
     Load one sample file from a station and print basic info.
@@ -60,7 +58,7 @@ def explore_single_file(station="IMZ"):
         print(df.describe())
 
         # plot amplitude and phase for the day
-        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 10), sharex=True)
+        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 6), sharex=True)
         ax1.plot(df["time"], df["amplitude"], linewidth=0.5, color="steelblue")
         ax1.set_ylabel("Amplitude (dB)")
         ax1.set_title(f"Sample VLF file — {txt_files[0]}")
@@ -73,7 +71,7 @@ def explore_single_file(station="IMZ"):
         print("\n  Plot saved to outputs/sample_vlf_plot.png")
 
 
-# ── Function: Count all files across all stations ────────────
+# Function: Count all files across all stations
 def count_all_files():
     """
     Count how many .txt files exist per station
@@ -92,7 +90,7 @@ def count_all_files():
     print(f"\n  Total files across all stations: {total}")
 
 
-# ── Function: Check date coverage ────────────────────────────
+# Function: Check date coverage
 def check_date_coverage():
     """
     Extract dates from filenames and check coverage.
@@ -122,19 +120,19 @@ def check_date_coverage():
                   f"({len(dates)} files)")
 
 
-# ── Main ─────────────────────────────────────────────────────
+# Main
 if __name__ == "__main__":
 
-    # make sure outputs folder exists
+    # check output folder
     os.makedirs("outputs", exist_ok=True)
 
-    # 1. explore a single file
+    # explore a single file
     explore_single_file(station="IMZ")
 
-    # 2. count all files
+    # count all files
     count_all_files()
 
-    # 3. check date coverage
+    # check date coverage
     check_date_coverage()
 
-    print("\n── Step 1 complete.")
+    print("\n── Step 1 complete")
