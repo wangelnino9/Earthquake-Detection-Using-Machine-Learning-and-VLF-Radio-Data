@@ -20,7 +20,6 @@ NIGHT_START = 75600
 NIGHT_END   = 14400
 
 # Station coordinates (latitude, longitude)
-# These are approximate locations for each station
 STATION_COORDS = {
     "AKT": (39.75, 140.10),
     "ANA": (36.24, 137.98),
@@ -48,12 +47,12 @@ def extract_date(filename):
             return None
     return None
 
-# ── Function: Check if file is bad quality ───────────────────
+# Function: Check for missing or lacking file 
 def is_bad_file(filename):
     """Returns True if file is MISS or LACK."""
     return "MISS" in filename.upper() or "LACK" in filename.upper()
 
-# ── Function: Read a single VLF file ─────────────────────────
+# Function: Read a single VLF file
 def read_vlf_file(filepath):
     """Read a VLF .txt file, skip header lines starting with %."""
     try:
