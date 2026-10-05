@@ -1,8 +1,3 @@
-# ============================================================
-# VLF Monitoring Network Map — using GeoPandas
-# JJI Transmitter and 8 UltraMSK Receiver Stations, Japan
-# ============================================================
-
 import geopandas as gpd
 import matplotlib.pyplot as plt
 import matplotlib.lines as mlines
@@ -11,7 +6,7 @@ import numpy as np
 from shapely.geometry import Point, LineString
 import geodatasets
 
-# ── Station data ─────────────────────────────────────────────
+#Station data 
 TRANSMITTER = {
     "name": "JJI",
     "label": "JJI Transmitter\n(Ebino, 22.2 kHz)",
@@ -30,7 +25,7 @@ STATIONS = {
     "TYH": {"lat": 34.73, "lon": 138.98, "city": "Toyohashi"},
 }
 
-# Label offsets to avoid overlap [dx, dy]
+# Label offsets to avoid overlap
 LABEL_OFFSETS = {
     "AKT": (-1.5,  0.3),
     "ANA": (-1.6,  0.1),
@@ -42,24 +37,22 @@ LABEL_OFFSETS = {
     "TYH": ( 0.4, -0.5),
 }
 
-# ── Load world map from geodatasets ──────────────────────────
+#Load world map from geodatasets
 path = geodatasets.get_path("naturalearth.land")
 world = gpd.read_file(path)
 
-# Clip to Japan region with a buffer
 from shapely.geometry import box
 japan_region = box(124, 27, 150, 48)
 japan_land = world.clip(japan_region)
 
-# ── Build GeoDataFrames ───────────────────────────────────────
-# Transmitter point
+#Build GeoDataFrames
 tx_gdf = gpd.GeoDataFrame(
     [{"name": TRANSMITTER["name"], "type": "transmitter"}],
     geometry=[Point(TRANSMITTER["lon"], TRANSMITTER["lat"])],
     crs="EPSG:4326"
 )
 
-# Receiver points
+#Receiver points
 rx_records = []
 rx_geoms = []
 for code, info in STATIONS.items():
@@ -67,7 +60,7 @@ for code, info in STATIONS.items():
     rx_geoms.append(Point(info["lon"], info["lat"]))
 rx_gdf = gpd.GeoDataFrame(rx_records, geometry=rx_geoms, crs="EPSG:4326")
 
-# Signal path lines
+#Signal path lines
 path_geoms = []
 for info in STATIONS.values():
     path_geoms.append(LineString([
@@ -76,26 +69,20 @@ for info in STATIONS.values():
     ]))
 paths_gdf = gpd.GeoDataFrame(geometry=path_geoms, crs="EPSG:4326")
 
-# Detection zone circle (~1000 km radius around JJI)
-# 1 degree ≈ 111 km → 1000 km ≈ ~9 degrees
-# Use buffer on the transmitter point
+# Detection zone circle 
 tx_point = Point(TRANSMITTER["lon"], TRANSMITTER["lat"])
 detection_zone = tx_point.buffer(9.5)  # degrees
-
-# ── Plot ──────────────────────────────────────────────────────
 fig, ax = plt.subplots(figsize=(11, 11))
-
-# Ocean background
 ax.set_facecolor("#cde4f0")
 
-# Land
+#Land
 japan_land.plot(ax=ax,
                 color="#d6e8b0",
                 edgecolor="#888888",
                 linewidth=0.7,
                 zorder=1)
 
-# Detection zone
+#Detection zone
 zone_gdf = gpd.GeoDataFrame(geometry=[detection_zone], crs="EPSG:4326")
 zone_gdf.plot(ax=ax,
               color="none",
@@ -104,7 +91,7 @@ zone_gdf.plot(ax=ax,
               linestyle=":",
               zorder=2)
 
-# Signal paths
+#Signal paths
 paths_gdf.plot(ax=ax,
                color="#d4610a",
                linewidth=1.3,
@@ -112,7 +99,7 @@ paths_gdf.plot(ax=ax,
                alpha=0.75,
                zorder=3)
 
-# Receiver stations
+#Receiver stations
 rx_gdf.plot(ax=ax,
             color="#1565C0",
             markersize=80,
@@ -121,7 +108,7 @@ rx_gdf.plot(ax=ax,
             linewidth=0.8,
             zorder=5)
 
-# Transmitter
+#Transmitter
 tx_gdf.plot(ax=ax,
             color="#cc0000",
             markersize=130,
@@ -130,8 +117,8 @@ tx_gdf.plot(ax=ax,
             linewidth=0.8,
             zorder=6)
 
-# ── Annotations ───────────────────────────────────────────────
-# Transmitter label
+#Annotations
+#Transmitter label
 ax.annotate(
     "JJI\n(Ebino)",
     xy=(TRANSMITTER["lon"], TRANSMITTER["lat"]),
@@ -142,7 +129,7 @@ ax.annotate(
                     linewidth=0.8, alpha=0.7)
 )
 
-# Receiver labels
+#Receiver labels
 for code, info in STATIONS.items():
     dx, dy = LABEL_OFFSETS.get(code, (0.4, 0.2))
     ax.annotate(
@@ -159,7 +146,7 @@ for code, info in STATIONS.items():
                   alpha=0.7)
     )
 
-# Detection zone label
+#Detection zone label
 ax.annotate(
     "Detection Zone\n(~1000 km radius)",
     xy=(TRANSMITTER["lon"] + 9.5, TRANSMITTER["lat"]),
@@ -170,7 +157,7 @@ ax.annotate(
     arrowprops=dict(arrowstyle="->", color="#888888", linewidth=0.8)
 )
 
-# ── Map formatting ────────────────────────────────────────────
+#Map formatting
 ax.set_xlim(126, 149)
 ax.set_ylim(29.5, 46.5)
 ax.set_xlabel("Longitude (°E)", fontsize=10)
@@ -181,13 +168,13 @@ ax.set_title(
     fontsize=13, fontweight="bold", pad=14
 )
 
-# Gridlines
+#Gridlines
 ax.grid(True, color="white", linewidth=0.5, alpha=0.8, zorder=0)
 ax.set_xticks(np.arange(126, 150, 2))
 ax.set_yticks(np.arange(30, 47, 2))
 ax.tick_params(labelsize=9)
 
-# ── Legend ────────────────────────────────────────────────────
+#Legend
 legend_elements = [
     mlines.Line2D([0], [0], marker="^", color="w",
                   markerfacecolor="#cc0000", markeredgecolor="black",

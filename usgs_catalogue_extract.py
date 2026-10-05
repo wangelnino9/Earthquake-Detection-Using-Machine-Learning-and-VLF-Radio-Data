@@ -1,13 +1,3 @@
-"""
-USGS Earthquake Catalogue with Square Grid Method
-1. Create 100 equally spaced points along the great circle path
-   from JJI transmitter to each of 8 receiver stations
-2. Draw a 100km x 100km square centred on each point
-3. Find all USGS earthquakes that fall inside any square
-4. Remove duplicates → final earthquake list
-
-"""
-
 import requests
 import pandas as pd
 import numpy as np
@@ -18,8 +8,7 @@ import matplotlib.patches as patches
 import os
 from io import StringIO
 
-#Configuration 
-
+# Configuration
 # JJI Transmitter (Ebino, Japan)
 JJI_LAT = 32.08
 JJI_LON = 130.82
@@ -37,16 +26,15 @@ STATIONS = {
 }
 
 # Square parameters
-N_POINTS    = 100       # number of points along each path
-SQUARE_KM   = 100       # side length of each square in km
+N_POINTS    = 100       
+SQUARE_KM   = 100       
 
 # USGS parameters
 START_DATE  = "2014-01-01"
 END_DATE    = "2017-02-28"
 MIN_MAG     = 3.0
 
-# Broad bounding box for USGS query (covers all of Japan region)
-MIN_LAT     = 25.0
+# Broad bounding box for USGS query
 MAX_LAT     = 48.0
 MIN_LON     = 125.0
 MAX_LON     = 150.0
@@ -55,10 +43,9 @@ OUTPUT_DIR  = "outputs"
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 
-#Helper Functions 
+#Helper Functions
 
 def haversine(lat1, lon1, lat2, lon2):
-    """Great circle distance between two points in metres."""
     R = 6371000
     phi1, phi2 = np.radians(lat1), np.radians(lat2)
     dphi = np.radians(lat2 - lat1)
@@ -69,6 +56,7 @@ def haversine(lat1, lon1, lat2, lon2):
 
 
 def intermediate_point(lat1, lon1, lat2, lon2, fraction):
+
     lat1, lon1 = np.radians(lat1), np.radians(lon1)
     lat2, lon2 = np.radians(lat2), np.radians(lon2)
 
@@ -100,7 +88,6 @@ def km_to_degrees(km, lat):
 
 
 def get_square_bounds(centre_lat, centre_lon, km):
-  
     half_km = km / 2.0
     lat_offset, lon_offset = km_to_degrees(half_km, centre_lat)
 
@@ -117,7 +104,7 @@ def point_in_square(eq_lat, eq_lon, min_lat, max_lat, min_lon, max_lon):
             min_lon <= eq_lon <= max_lon)
 
 
-#Generate 100 Points Along Each Path 
+#Generate 100 Points Along Each Path
 
 def generate_path_points(tx_lat, tx_lon, rx_lat, rx_lon, n_points):
     points = []
@@ -160,7 +147,6 @@ def generate_all_path_points():
 # Download USGS Catalogue 
 
 def download_usgs_catalogue():
-    """Download earthquake catalogue from USGS API."""
     print("\nDownloading USGS earthquake catalogue...")
     print(f"  Region : {MIN_LAT}°N–{MAX_LAT}°N, "
           f"{MIN_LON}°E–{MAX_LON}°E")
@@ -192,7 +178,6 @@ def download_usgs_catalogue():
 
 
 def clean_catalogue(df):
-    """Clean and prepare USGS catalogue."""
     cols = ["time", "latitude", "longitude", "depth", "mag",
             "magType", "place", "type"]
     cols_available = [c for c in cols if c in df.columns]
@@ -220,10 +205,9 @@ def clean_catalogue(df):
     return df
 
 
-#Filter by Squares 
+#Filter by Squares
 
 def filter_by_squares(df, all_points):
-    
     print("\nFiltering earthquakes using square grid method...")
     print(f"  Checking {len(df):,} earthquakes against "
           f"{N_POINTS * len(STATIONS):,} squares...")
@@ -231,7 +215,7 @@ def filter_by_squares(df, all_points):
     # Collect all matched earthquake IDs
     matched_ids = set()
 
-    # Track which path each earthquake was matched to
+    # Track
     eq_paths = {}
 
     total_squares = 0
@@ -245,9 +229,6 @@ def filter_by_squares(df, all_points):
                 point_lat, point_lon, SQUARE_KM
             )
             total_squares += 1
-
-            # Check all earthquakes against this square
-            # Vectorised for speed — no loop needed
             mask = (
                 (df["lat"] >= min_lat) & (df["lat"] <= max_lat) &
                 (df["lon"] >= min_lon) & (df["lon"] <= max_lon)
@@ -268,8 +249,6 @@ def filter_by_squares(df, all_points):
 
     # Build filtered dataframe
     df_filtered = df[df["eq_id"].isin(matched_ids)].copy()
-
-    # Add which paths matched each earthquake
     df_filtered["matched_paths"] = df_filtered["eq_id"].map(
         lambda x: ",".join(eq_paths.get(x, []))
     )
@@ -283,7 +262,7 @@ def filter_by_squares(df, all_points):
     return df_filtered
 
 
-# Summary 
+# Summary
 
 def print_summary(df):
     """Print summary statistics."""
@@ -316,18 +295,13 @@ def print_summary(df):
         print(f"    {year} : {count:,}")
 
 
-#Visualise
+# Visualise
 
-# def visualise(df_all, df_filtered, all_points):
-    """
-    Plot:
-    Left  — all Japan earthquakes + square grid overlaid
-    Right — filtered earthquakes only
-    """
+def visualise(df_all, df_filtered, all_points):
     print("\nGenerating visualisation...")
 
-    fig, axes = plt.subplots(1, 2, figsize=(18, 8))
-    fig.patch.set_facecolor("white")
+    import cartopy.crs as ccrs
+    import cartopy.feature as cfeature
 
     colors = {
         "AKT": "#2E6DA4", "ANA": "#2E7D52", "IMZ": "#C8922A",
@@ -335,19 +309,40 @@ def print_summary(df):
         "STU": "#C0392B", "TYH": "#5B8DB8"
     }
 
+    XLIM = (125, 150)
+    YLIM = (25, 48)
+
+    proj = ccrs.PlateCarree()
+    fig, axes = plt.subplots(
+        1, 2, figsize=(18, 8),
+        subplot_kw={"projection": proj}
+    )
+    fig.patch.set_facecolor("white")
+
     for ax_idx, ax in enumerate(axes):
-        ax.set_facecolor("#F0F4F8")
+
+        #Cartopy background
+        ax.set_extent([XLIM[0], XLIM[1], YLIM[0], YLIM[1]],
+                      crs=proj)
+        ax.add_feature(cfeature.OCEAN, color="#C8DCF0", zorder=0)
+        ax.add_feature(cfeature.LAND,  color="#D6E8D0", zorder=1)
+        ax.add_feature(cfeature.COASTLINE,
+                       edgecolor="#AACBA8",
+                       linewidth=0.6, zorder=2)
+        ax.add_feature(cfeature.BORDERS,
+                       edgecolor="#BBBBBB",
+                       linewidth=0.4, zorder=2)
+        ax.gridlines(draw_labels=True, linewidth=0.4,
+                     color="gray", alpha=0.4,
+                     xlocs=range(125, 151, 5),
+                     ylocs=range(25, 49, 5))
 
         if ax_idx == 0:
-            # Show squares for one path (AKT) as example
-            # (showing all 800 squares would be too dense)
             stn_example = "AKT"
             for point_lat, point_lon in all_points[stn_example]:
                 min_lat, max_lat, min_lon, max_lon = get_square_bounds(
                     point_lat, point_lon, SQUARE_KM
                 )
-                _, lon_off = km_to_degrees(SQUARE_KM/2, point_lat)
-                lat_off, _  = km_to_degrees(SQUARE_KM/2, point_lat)
                 rect = patches.Rectangle(
                     (min_lon, min_lat),
                     max_lon - min_lon,
@@ -355,23 +350,27 @@ def print_summary(df):
                     linewidth=0.4,
                     edgecolor=colors[stn_example],
                     facecolor=colors[stn_example],
-                    alpha=0.08
+                    alpha=0.12, zorder=3,
+                    transform=proj
                 )
                 ax.add_patch(rect)
 
-            # Path lines for all stations
+            # Path lines all stations
             for stn, (rx_lat, rx_lon) in STATIONS.items():
                 path_lats = [pt[0] for pt in all_points[stn]]
                 path_lons = [pt[1] for pt in all_points[stn]]
                 ax.plot(path_lons, path_lats,
-                        color=colors[stn], linewidth=1.0,
-                        alpha=0.7, label=f"{stn} path")
+                        color=colors[stn], linewidth=1.2,
+                        alpha=0.85, zorder=4,
+                        label=f"{stn} path",
+                        transform=proj)
 
             # All earthquakes
             sc = ax.scatter(df_all["lon"], df_all["lat"],
                             c=df_all["magnitude"],
-                            cmap="YlOrRd", s=6, alpha=0.4,
-                            vmin=3.0, vmax=7.5, zorder=3)
+                            cmap="YlOrRd", s=6, alpha=0.5,
+                            vmin=3.0, vmax=7.5, zorder=5,
+                            transform=proj)
             title = (f"All M≥{MIN_MAG} Japan Earthquakes\n"
                      f"({len(df_all):,} events) — "
                      f"squares shown for {stn_example} path")
@@ -382,48 +381,51 @@ def print_summary(df):
                 path_lats = [pt[0] for pt in all_points[stn]]
                 path_lons = [pt[1] for pt in all_points[stn]]
                 ax.plot(path_lons, path_lats,
-                        color=colors[stn], linewidth=1.0,
-                        alpha=0.7)
+                        color=colors[stn], linewidth=1.2,
+                        alpha=0.85, zorder=4,
+                        transform=proj)
 
             # Filtered earthquakes
             sc = ax.scatter(df_filtered["lon"], df_filtered["lat"],
                             c=df_filtered["magnitude"],
-                            cmap="YlOrRd", s=8, alpha=0.6,
-                            vmin=3.0, vmax=7.5, zorder=3)
+                            cmap="YlOrRd", s=10, alpha=0.7,
+                            vmin=3.0, vmax=7.5, zorder=5,
+                            transform=proj)
             title = (f"After Square Filtering\n"
                      f"({len(df_filtered):,} unique earthquakes)")
 
         # JJI transmitter
-        ax.scatter(JJI_LON, JJI_LAT, marker="^", s=200,
-                   color="#1B3A5C", zorder=5)
-        ax.annotate("JJI", (JJI_LON, JJI_LAT),
-                    textcoords="offset points", xytext=(6, 4),
-                    fontsize=8, color="#1B3A5C", fontweight="bold")
+        ax.scatter(JJI_LON, JJI_LAT, marker="^", s=220,
+                   color="#1B3A5C", zorder=6, transform=proj)
+        ax.annotate("JJI", xy=(JJI_LON, JJI_LAT),
+                    xycoords=proj._as_mpl_transform(ax),
+                    xytext=(6, 5), textcoords="offset points",
+                    fontsize=8.5, color="#1B3A5C",
+                    fontweight="bold", zorder=7)
 
         # Receiver stations
         for stn, (lat, lon) in STATIONS.items():
-            ax.scatter(lon, lat, marker="v", s=80,
-                       color=colors[stn], zorder=5)
-            ax.annotate(stn, (lon, lat),
-                        textcoords="offset points", xytext=(4, 3),
-                        fontsize=7, color=colors[stn],
-                        fontweight="bold")
+            ax.scatter(lon, lat, marker="v", s=90,
+                       color=colors[stn], zorder=6,
+                       edgecolors="white", linewidths=0.5,
+                       transform=proj)
+            ax.annotate(stn, xy=(lon, lat),
+                        xycoords=proj._as_mpl_transform(ax),
+                        xytext=(5, 3), textcoords="offset points",
+                        fontsize=7.5, color=colors[stn],
+                        fontweight="bold", zorder=7)
 
-        ax.set_xlim(125, 150)
-        ax.set_ylim(25, 48)
-        ax.set_xlabel("Longitude (°E)", fontsize=10)
-        ax.set_ylabel("Latitude (°N)", fontsize=10)
         ax.set_title(title, fontsize=11, fontweight="bold",
-                     color="#1B3A5C")
-        ax.grid(True, alpha=0.3, color="white")
-        ax.tick_params(labelsize=8)
+                     color="#1B3A5C", pad=8)
 
         if ax_idx == 1:
-            plt.colorbar(sc, ax=ax, label="Magnitude", shrink=0.8)
+            plt.colorbar(sc, ax=ax,
+                         label="Magnitude", shrink=0.75)
 
         if ax_idx == 0:
             ax.legend(fontsize=7, loc="upper left",
-                      framealpha=0.8, ncol=2)
+                      framealpha=0.85, ncol=2,
+                      edgecolor="#CCCCCC")
 
     plt.suptitle(
         f"USGS Catalogue — Square Grid Method "
@@ -434,7 +436,7 @@ def print_summary(df):
     )
     plt.tight_layout()
 
-    out_path = os.path.join(OUTPUT_DIR, "step3_square_map.png")
+    out_path = os.path.join(OUTPUT_DIR, "square_map.png")
     plt.savefig(out_path, dpi=150, bbox_inches="tight",
                 facecolor="white")
     plt.close()
@@ -445,38 +447,38 @@ def print_summary(df):
 
 def main():
     print("=" * 55)
-    print("STEP 3 — USGS CATALOGUE (SQUARE GRID METHOD)")
+    print("USGS CATALOGUE (SQUARE GRID METHOD)")
     print("=" * 55)
 
-    #Generate 100 points along each path
+    # 1. Generate 100 points along each path
     all_points = generate_all_path_points()
 
-    #Download USGS catalogue
+    # 2. Download USGS catalogue
     df_raw = download_usgs_catalogue()
     if df_raw is None:
         print("Download failed. Check internet connection.")
         return
 
-    #Clean catalogue
+    # 3. Clean catalogue
     df_clean = clean_catalogue(df_raw)
 
-    # Filter by squares — core logic
+    # 4. Filter by squares
     df_filtered = filter_by_squares(df_clean, all_points)
 
-    #Summary
+    # 5. Summary
     print_summary(df_filtered)
 
-    # Visualise
-    # visualise(df_clean, df_filtered, all_points)
+    # 6. Visualise
+    visualise(df_clean, df_filtered, all_points)
 
-    # Save outputs
+    # 7. Save outputs
     # Full filtered catalogue
     cat_path = os.path.join(OUTPUT_DIR,
                             "usgs_catalogue_squares.csv")
     df_filtered.to_csv(cat_path, index=False)
     print(f"\n  Full catalogue saved : {cat_path}")
 
-    # Earthquake days — one row per date
+    # Earthquake days
     days_path = os.path.join(OUTPUT_DIR,
                              "earthquake_days.csv")
     eq_days = (

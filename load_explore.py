@@ -1,25 +1,21 @@
-#Stage 1 — Load and Explore Raw VLF Data
 
 import os
 import pandas as pd
 import matplotlib.pyplot as plt
+from dotenv import load_dotenv
 
+load_dotenv() 
+DATA_DIR = os.getenv("DATA_DIR")
 # Configuration 
-DATA_DIR = "/Users/tsheringsherpa/Downloads/Masters Thesis/Project/Data"  # path
 STATIONS = ["AKT", "ANA", "IMZ", "KMK", "KTU", "NSB", "STU", "TYH"]
 
-#Function: Read a single VLF .txt file 
+#Read a single VLF .txt file 
 def read_vlf_file(filepath):
-    """
-    Reads a single VLF .txt file.
-    Skips header lines starting with '%'.
-    Returns a DataFrame with columns: time, amplitude, phase.
-    """
     try:
         df = pd.read_csv(
             filepath,
-            comment="%",           # skip header lines
-            sep=r"\s+",            # whitespace separator
+            comment="%",           
+            sep=r"\s+",            
             header=None,
             names=["time", "amplitude", "phase"]
         )
@@ -29,11 +25,8 @@ def read_vlf_file(filepath):
         return None
 
 
-#Function: Explore a single file
+#Explore a single file
 def explore_single_file(station="IMZ"):
-    """
-    Load one sample file from a station and print basic info.
-    """
     station_path = os.path.join(DATA_DIR, station, "JJI")
     files = sorted(os.listdir(station_path))
     txt_files = [f for f in files if f.endswith(".txt")]
@@ -42,7 +35,6 @@ def explore_single_file(station="IMZ"):
         print(f"No .txt files found in {station_path}")
         return
 
-    # pick the first file
     sample_file = os.path.join(station_path, txt_files[0])
     print(f"\n── Sample file: {sample_file}")
 
@@ -71,7 +63,7 @@ def explore_single_file(station="IMZ"):
         print("\n  Plot saved to outputs/sample_vlf_plot.png")
 
 
-# Function: Count all files across all stations
+# Count all files across all stations
 def count_all_files():
     """
     Count how many .txt files exist per station
@@ -90,13 +82,8 @@ def count_all_files():
     print(f"\n  Total files across all stations: {total}")
 
 
-# Function: Check date coverage
+# Check date coverage
 def check_date_coverage():
-    """
-    Extract dates from filenames and check coverage.
-    Assumes filename format like: JJI_STX20140420.txt
-    Date is the last 8 characters before .txt → YYYYMMDD
-    """
     print("\n── Date coverage per station:")
     for station in STATIONS:
         station_path = os.path.join(DATA_DIR, station, "JJI")
@@ -134,5 +121,3 @@ if __name__ == "__main__":
 
     # check date coverage
     check_date_coverage()
-
-    print("\n── Step 1 complete")

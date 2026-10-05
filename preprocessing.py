@@ -1,5 +1,3 @@
-
-
 import pandas as pd
 import numpy as np
 import matplotlib
@@ -12,23 +10,18 @@ os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 # Feature columns to preprocess
 FEATURE_COLS = [
-    "Amp_Mean",
-    "Amp_Std",
-    "Night_Amp_Mean",
-    "Night_Amp_Std",
-    "Phase_Mean",
-    "Phase_Std",
+    "Amp_Mean", "Amp_Std",
+    "Phase_Mean", "Phase_Std"
 ]
 
 # Percentile bounds for capping
-LOWER_PCT = 1   # cap values below 1st percentile
-UPPER_PCT = 99  # cap values above 99th percentile
+LOWER_PCT = 1   
+UPPER_PCT = 99  
 
 
 #Load Data 
 
 def load_data():
-    """Load labelled dataset from last stage"""
     print("Loading labelled dataset...")
 
     path = os.path.join(OUTPUT_DIR, "vlf_labelled.csv")
@@ -52,7 +45,6 @@ def load_data():
 #Check Missing Values 
 
 def check_missing(df):
-    """Check and report any missing values."""
     print("\nChecking for missing values...")
 
     missing = df[FEATURE_COLS].isnull().sum()
@@ -103,8 +95,6 @@ def percentile_capping(df):
             # Calculate percentile caps
             lower_cap = np.percentile(values, LOWER_PCT)
             upper_cap = np.percentile(values, UPPER_PCT)
-
-            # Count how many values will be capped
             n_lower = (values < lower_cap).sum()
             n_upper = (values > upper_cap).sum()
             n_capped = n_lower + n_upper
@@ -151,12 +141,12 @@ def verify_preprocessing(df_original, df_capped):
     assert (df_original["label"].values ==
             df_capped["label"].values).all(), \
         "ERROR: Labels changed during preprocessing!"
-    print("  ✓ Labels unchanged")
+    print("  Labels unchanged")
 
     # Shape must be identical
     assert df_original.shape == df_capped.shape, \
         "ERROR: Shape changed during preprocessing!"
-    print("  ✓ Shape unchanged")
+    print("  Shape unchanged")
 
     # Check std reduced for all features
     print("\n  Feature statistics comparison (all stations combined):")
@@ -182,10 +172,6 @@ def verify_preprocessing(df_original, df_capped):
 # Visualise 
 
 def visualise(df_original, df_capped):
-    """
-    Plot before and after distributions for all 6 features.
-    Shows the effect of percentile capping on each feature.
-    """
     print("\nGenerating visualisation...")
 
     fig, axes = plt.subplots(3, 2, figsize=(14, 12))
@@ -234,7 +220,7 @@ def visualise(df_original, df_capped):
         ax.legend(fontsize=7)
 
     plt.suptitle(
-        "Step 5 — Preprocessing: Percentile Capping "
+        "Preprocessing: Percentile Capping "
         f"({LOWER_PCT}th – {UPPER_PCT}th percentile)\n"
         "Before vs After — all stations combined",
         fontsize=12, fontweight="bold",
@@ -242,7 +228,7 @@ def visualise(df_original, df_capped):
     )
     plt.tight_layout()
 
-    out_path = os.path.join(OUTPUT_DIR, "step5_preprocessing.png")
+    out_path = os.path.join(OUTPUT_DIR, "preprocessing.png")
     plt.savefig(out_path, dpi=150,
                 bbox_inches="tight", facecolor="white")
     plt.close()
@@ -253,9 +239,7 @@ def visualise(df_original, df_capped):
 
 def main():
     print("=" * 55)
-    print("STEP 5 — PREPROCESSING AND OUTLIER HANDLING")
     print("=" * 55)
-    print("NOTE: Scaling is intentionally deferred to Step 6")
     print("      (fitted on training data only — no leakage)\n")
 
     #Load data
@@ -285,10 +269,9 @@ def main():
           f"{df_capped.shape[1]} columns")
 
     # Cap values record — important for thesis documentation
-    caps_path = os.path.join(OUTPUT_DIR, "step5_outlier_caps.csv")
+    caps_path = os.path.join(OUTPUT_DIR, "outlier_caps.csv")
     caps_df.to_csv(caps_path, index=False)
     print(f"  Cap values saved           : {caps_path}")
-    print("  (Keep this file — documents exactly what capping was applied)")
 
     print("\n Complete")
   

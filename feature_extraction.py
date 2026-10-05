@@ -1,23 +1,15 @@
-# Stage 2 : Feature Extraction from Raw VLF Files
-
-
 import os
 import re
 import pandas as pd
 import numpy as np
 from datetime import datetime
 
-#Configuration 
-DATA_DIR = "data"
-STATIONS = ["AKT", "ANA", "IMZ", "KMK", "KTU", "NSB", "STU", "TYH"]
-OUTPUT_DIR = "outputs"
 
-# Nighttime window: 21:00 to 04:00 local time
-# In seconds from midnight:
-# 21:00 = 75600 seconds
-# 04:00 = 14400 seconds
-NIGHT_START = 75600
-NIGHT_END   = 14400
+DATA_DIR   = "data"
+OUTPUT_DIR = "outputs"
+os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+STATIONS = ["AKT", "ANA", "IMZ", "KMK", "KTU", "NSB", "STU", "TYH"]
 
 # Station coordinates (latitude, longitude)
 STATION_COORDS = {
@@ -31,30 +23,33 @@ STATION_COORDS = {
     "TYH": (34.73, 138.98),
 }
 
-# Function: Extract date from filename 
+# 4-hour windows in seconds from midnight
+WINDOWS = [
+    (0,     14400,  "00:00-04:00"),   # Window 0 — nighttime end
+    (14400, 28800,  "04:00-08:00"),   # Window 1 — early morning
+    (28800, 43200,  "08:00-12:00"),   # Window 2 — morning
+    (43200, 57600,  "12:00-16:00"),   # Window 3 — afternoon
+    (57600, 72000,  "16:00-20:00"),   # Window 4 — evening
+    (72000, 86400,  "20:00-24:00"),   # Window 5 — nighttime start
+]
+
+
 def extract_date(filename):
-    """
-    Extract YYYYMMDD from filename using regex.
-    Works for: JJI_STX20140101.txt
-               JJI_STX20140102MISS.txt
-               JJI_STX20140106LACK.txt
-    """
     match = re.search(r'(\d{8})', filename)
     if match:
         try:
-            return datetime.strptime(match.group(1), "%Y%m%d").date()
+            return datetime.strptime(
+                match.group(1), "%Y%m%d").date()
         except:
             return None
     return None
 
-# Function: Check for missing or lacking file 
 def is_bad_file(filename):
-    """Returns True if file is MISS or LACK."""
-    return "MISS" in filename.upper() or "LACK" in filename.upper()
+    return ("MISS" in filename.upper() or
+            "LACK" in filename.upper())
 
-# Function: Read a single VLF file
+
 def read_vlf_file(filepath):
-    """Read a VLF .txt file, skip header lines starting with %."""
     try:
         df = pd.read_csv(
             filepath,
@@ -63,43 +58,47 @@ def read_vlf_file(filepath):
             header=None,
             names=["time", "amplitude", "phase"]
         )
-        # drop any rows with NaN
         df = df.dropna()
-        # keep only valid rows (time between 0 and 86400)
         df = df[(df["time"] >= 0) & (df["time"] <= 86400)]
         return df
-    except Exception as e:
+    except Exception:
         return None
 
-# Function: Extract features from one day's data 
-def extract_features(df):
-    """
-    Given a DataFrame for one day, compute daily features.
-    Returns a dict of features.
-    """
-    amp = df["amplitude"]
-    phase = df["phase"]
+def extract_window_features(df, date, station):
+    lat, lon = STATION_COORDS[station]
+    rows = []
 
-    # nighttime mask: 21:00 onwards OR before 04:00
-    night_mask = (df["time"] >= NIGHT_START) | (df["time"] <= NIGHT_END)
-    night_amp = df.loc[night_mask, "amplitude"]
+    for win_idx, (t_start, t_end, win_label) in enumerate(WINDOWS):
+        # Filter rows within this time window
+        mask   = (df["time"] >= t_start) & (df["time"] < t_end)
+        window = df[mask]
 
-    features = {
-        "Amp_Mean":        round(amp.mean(), 4),
-        "Amp_Std":         round(amp.std(), 4),
-        "Phase_Mean":      round(phase.mean(), 4),
-        "Phase_Std":       round(phase.std(), 4),
-        "Night_Amp_Mean":  round(night_amp.mean(), 4) if len(night_amp) > 0 else np.nan,
-        "Night_Amp_Std":   round(night_amp.std(), 4)  if len(night_amp) > 0 else np.nan,
-    }
-    return features
+        # Skip if too few readings
+        if len(window) < 7200:
+            continue
 
-#  Main: Process all stations and all files 
+        amp   = window["amplitude"]
+        phase = window["phase"]
+
+        rows.append({
+            "date":       date,
+            "station":    station,
+            "latitude":   lat,
+            "longitude":  lon,
+            "window_id":  win_idx,
+            "window":     win_label,
+            "Amp_Mean":   round(float(amp.mean()),   4),
+            "Amp_Std":    round(float(amp.std()),    4),
+            "Phase_Mean": round(float(phase.mean()), 4),
+            "Phase_Std":  round(float(phase.std()),  4),
+        })
+
+    return rows
+
 def extract_all():
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
 
     all_records = []
-    skipped = []
+    skipped     = []
 
     for station in STATIONS:
         station_path = os.path.join(DATA_DIR, station, "JJI")
@@ -108,92 +107,105 @@ def extract_all():
             print(f"  Folder not found: {station_path}")
             continue
 
-        files = sorted(os.listdir(station_path))
+        files     = sorted(os.listdir(station_path))
         txt_files = [f for f in files if f.endswith(".txt")]
 
         print(f"\nProcessing {station} — {len(txt_files)} files...")
 
-        station_count = 0
+        station_count   = 0
         station_skipped = 0
 
         for filename in txt_files:
 
-            # skip MISS and LACK files
+            # Skip MISS and LACK files
             if is_bad_file(filename):
                 date = extract_date(filename)
-                skipped.append({"station": station,
-                                 "filename": filename,
-                                 "date": date,
-                                 "reason": "MISS/LACK"})
+                skipped.append({
+                    "station":  station,
+                    "filename": filename,
+                    "date":     date,
+                    "reason":   "MISS/LACK"
+                })
                 station_skipped += 1
                 continue
 
-            # extract date
+            # Extract date
             date = extract_date(filename)
             if date is None:
-                skipped.append({"station": station,
-                                 "filename": filename,
-                                 "date": None,
-                                 "reason": "date_parse_failed"})
+                skipped.append({
+                    "station":  station,
+                    "filename": filename,
+                    "date":     None,
+                    "reason":   "date_parse_failed"
+                })
                 station_skipped += 1
                 continue
-
-            # read file
             filepath = os.path.join(station_path, filename)
-            df = read_vlf_file(filepath)
+            df       = read_vlf_file(filepath)
 
             if df is None or len(df) < 1000:
-                skipped.append({"station": station,
-                                 "filename": filename,
-                                 "date": date,
-                                 "reason": "too_few_rows"})
+                skipped.append({
+                    "station":  station,
+                    "filename": filename,
+                    "date":     date,
+                    "reason":   "too_few_rows"
+                })
                 station_skipped += 1
                 continue
 
-            # extract features
-            features = extract_features(df)
+            # Extract 4-hour window features
+            records = extract_window_features(df, date, station)
 
-            # build record
-            lat, lon = STATION_COORDS[station]
-            record = {
-                "date":     date,
-                "station":  station,
-                "latitude": lat,
-                "longitude": lon,
-                **features
-            }
-            all_records.append(record)
+            if not records:
+                skipped.append({
+                    "station":  station,
+                    "filename": filename,
+                    "date":     date,
+                    "reason":   "no_valid_windows"
+                })
+                station_skipped += 1
+                continue
+
+            all_records.extend(records)
             station_count += 1
 
-        print(f"  Extracted : {station_count} records")
+        print(f"  Extracted : {station_count} files "
+              f"({station_count * len(WINDOWS)} rows)")
         print(f"  Skipped   : {station_skipped} files")
 
-    # build final DataFrame
+    #Build DataFrame
     df_features = pd.DataFrame(all_records)
-    df_features = df_features.sort_values(["station", "date"]).reset_index(drop=True)
+    df_features = df_features.sort_values(
+        ["station", "date", "window_id"]
+    ).reset_index(drop=True)
 
-    # save to CSV
+    #Save features
     output_path = os.path.join(OUTPUT_DIR, "vlf_features.csv")
     df_features.to_csv(output_path, index=False)
+
     print(f"\n── Features saved to {output_path}")
-    print(f"── Total records: {len(df_features)}")
+    print(f"── Total rows    : {len(df_features):,}")
+    print(f"── Columns       : {list(df_features.columns)}")
     print(f"\nFirst 5 rows:")
     print(df_features.head())
-    print(f"\nColumn list:")
-    print(list(df_features.columns))
     print(f"\nBasic stats:")
-    print(df_features.describe())
+    print(df_features[["Amp_Mean", "Amp_Std",
+                        "Phase_Mean", "Phase_Std"]].describe())
 
-    # save skipped files log
-    df_skipped = pd.DataFrame(skipped)
-    skipped_path = os.path.join(OUTPUT_DIR, "skipped_files.csv")
+    #Save skipped files log
+    df_skipped    = pd.DataFrame(skipped)
+    skipped_path  = os.path.join(OUTPUT_DIR, "skipped_files.csv")
     df_skipped.to_csv(skipped_path, index=False)
     print(f"\n── Skipped files log saved to {skipped_path}")
-    print(f"── Total skipped: {len(df_skipped)}")
+    print(f"── Total skipped : {len(df_skipped)}")
 
     return df_features
 
-# Run 
 if __name__ == "__main__":
+    print("=" * 55)
+    print("SFEATURE EXTRACTION (4-HOUR WINDOWS)")
+    print("=" * 55)
+    print("  6 windows × 4 features = 24 features per day")
+    print("  Rows per file : up to 6 ")
+    print()
     df = extract_all()
-    print("\n── Step 2 complete.")
