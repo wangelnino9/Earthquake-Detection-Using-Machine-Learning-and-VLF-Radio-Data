@@ -38,6 +38,7 @@ MIN_MAG     = 3.0
 MAX_LAT     = 48.0
 MIN_LON     = 125.0
 MAX_LON     = 150.0
+MIN_LAT = 10.0
 
 OUTPUT_DIR  = "outputs"
 os.makedirs(OUTPUT_DIR, exist_ok=True)
